@@ -1,24 +1,22 @@
 from .job import Job, JobNotFound
 from .session import LocalSession, SSHSession
+from . import utils
 
 
 class SlurmAcct:
     def __init__(self, session):
         self.session = session
 
-    def lookup(self, job):
+    def filter(self, job=None, user_id=None):
         if type(job) is int:
             job_id = job
         else:
             job_id = job.job_id
-        acct = self.session.sacct(job_id=job_id)
-        if len(acct) > 0:
-            return Job.from_queue(acct[0])
-        else:
-            return None
+        acct = self.session.sacct(job_id=job_id, user_id=user_id)
+        return [Job.from_queue(entry["JOB_ID"], "single", entry) for entry in acct]
 
-    def all(self, user_id=None):
-        return [Job.from_queue(e) for e in self.session.sacct(user_id)]
+    def all(self):
+        return self.filter()
 
 
 class SlurmQueue:
@@ -34,23 +32,47 @@ class SlurmQueue:
             jobargs = jobspec.construct_args()
         return self.session.sbatch(jobexec, wait=wait, **jobargs)
 
-    def lookup(self, job):
-        if type(job) is int:
-            job_id = job
-        else:
-            job_id = job.job_id
+    def _queue_entries_to_jobs(self, in_queue, dedup=True):
+        hetjobs = {}
+        merged_jobs = []
+        for entry in in_queue:
+            job_id, hetidx = utils.parse_job_id(entry["JOBID"])
+            if hetidx is not None:
+                if job_id not in hetjobs:
+                    hetjob = Job.from_queue(job_id, "heterogenous", entry)
+                    hetjobs[job_id] = hetjob
+                    merged_jobs.append(hetjob)
 
-        in_queue = self.session.squeue(job_id=job_id)
-        if len(in_queue) > 0:
-            return Job.from_queue(in_queue[0])
+                hetjobs[job_id].children.append(
+                    Job.from_queue(job_id, "single", entry, hetidx=hetidx)
+                )
+
+                if not dedup:
+                    merged_jobs.append(
+                        Job.from_queue(job_id, "single", entry, hetidx=hetidx)
+                    )
+
+            else:
+                merged_jobs.append(Job.from_queue(job_id, "single", entry))
+        return merged_jobs
+
+    def filter(self, job=None, user_id=None):
+        if job:
+            if type(job) is int:
+                job_id = job
+            else:
+                job_id = job.job_id
         else:
-            return None
+            job_id = None
+
+        return self._queue_entries_to_jobs(
+            self.session.squeue(job_id=job_id, user_id=user_id)
+        )
 
     def all(self):
-        return [Job.from_queue(e) for e in self.session.squeue()]
+        return self.filter()
 
 
-# TODO: integrate user_id (required for squeue and sacct)
 class Slurm:
     def __init__(self, session):
         self.session = session
@@ -72,7 +94,7 @@ class Slurm:
 
     def submit(self, jobspec, wait=False, **kwargs):
         job_id = self.queue.submit(jobspec, wait=wait, **kwargs)
-        submitted = self.lookup(job_id)
+        submitted = self.filter(job=job_id)
         if submitted is None:
             raise JobNotFound
         else:
@@ -81,8 +103,8 @@ class Slurm:
     def queued(self):
         return self.queue.all()
 
-    def lookup(self, job):
-        in_queue = self.queue.lookup(job)
+    def filter(self, job=None, user_id=None):
+        in_queue = self.queue.filter(job=job, user_id=user_id)
         if in_queue:
             return in_queue
-        return self.acct.lookup(job)
+        return self.acct.filter(job=job, user_id=user_id)

@@ -2,8 +2,15 @@ import paramiko
 from typing import Optional
 import abc
 
-_SQUEUE_FORMAT = "%a|%A|%T|%B|%e"
-_SQUEUE_FORMAT_KEYS = ("ACCOUNT", "JOBID", "STATE", "EXEC_HOST", "END_TIME")
+_SQUEUE_FORMAT = "%a|%i|%T|%B|%e|%P"
+_SQUEUE_FORMAT_KEYS = (
+    "ACCOUNT",
+    "JOBID",
+    "STATE",
+    "EXEC_HOST",
+    "END_TIME",
+    "PARTITION",
+)
 _SACCT_FORMAT_KEYS = ("ACCOUNT", "JOBID", "STATE", "END_TIME")
 
 
@@ -18,7 +25,10 @@ class Session(abc.ABC):
 
     def sbatch(self, jobexec: str, **kwargs) -> int:
         args = " ".join(
-            map(lambda kv: f"--{kv[0]}={kv[1]}" if kv[1] else f"--{kv[0]}", kwargs.items())
+            map(
+                lambda kv: f"--{kv[0]}={kv[1]}" if kv[1] else f"--{kv[0]}",
+                kwargs.items(),
+            )
         )
         out, err, exit_code = self.exec_cmd(f"sbatch {jobexec} " + args)
         if exit_code != 0:
@@ -50,13 +60,15 @@ class Session(abc.ABC):
         if exit_code != 0:
             raise SlurmError(err)
 
-    def sacct(self, job_id=None, allocations=True):
+    def sacct(self, job_id=None, user_id=None, allocations=True):
         # use -X flag (maybe)
         args = ["sacct", "-n", "-P", "--format", "User,JobID,State,End"]
         if allocations:
             args.append("-X")
         if job_id:
             args.append(f"-j {job_id}")
+        if user_id:
+            args.append(f"-u {user_id}")
 
         out, err, return_code = self.exec_cmd(" ".join(args))
         if return_code != 0:
