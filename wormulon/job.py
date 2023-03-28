@@ -27,7 +27,7 @@ def _squeue_entry_is_done(state):
 class Job:
     job_id: str
     kind: str
-    heterogenous_index: int | None
+    heterogeneous_index: int | None
     account: str
     partition: str
     state: str
@@ -53,7 +53,7 @@ class Job:
         return cls(
             job_id=job_id,
             kind=kind,
-            heterogenous_index=hetidx,
+            heterogeneous_index=hetidx,
             account=squeue_output["ACCOUNT"],
             partition=squeue_output["PARTITION"],
             state=squeue_output["STATE"],
@@ -97,8 +97,8 @@ class Job:
         return _squeue_entry_is_done(self.state)
 
     @property
-    def heterogenous(self):
-        return self.kind == "heterogenous"
+    def heterogeneous(self):
+        return self.kind == "heterogeneous"
 
     @property
     def single(self):

@@ -32,26 +32,28 @@ class SlurmQueue:
             jobargs = jobspec.construct_args()
         return self.session.sbatch(jobexec, wait=wait, **jobargs)
 
-    def _queue_entries_to_jobs(self, in_queue, dedup=True):
+    def _queue_entries_to_jobs(self, in_queue, merge=True):
         hetjobs = {}
         merged_jobs = []
         for entry in in_queue:
-            job_id, hetidx = utils.parse_job_id(entry["JOBID"])
+            job_id, job_leader_id, hetidx = utils.parse_job_id(entry["JOBID"])
             if hetidx is not None:
-                if job_id not in hetjobs:
-                    hetjob = Job.from_queue(job_id, "heterogenous", entry)
-                    hetjobs[job_id] = hetjob
+                job = Job.from_queue(job_id, "single", entry, hetidx=hetidx)
+
+                if job_leader_id not in hetjobs:
+                    hetjobs[job_leader_id] = [job]
+                else:
+                    hetjobs[job_leader_id].append(job)
+
+                if hetidx == 0 and merge:
+                    hetjob = Job.from_queue(job_leader_id, "heterogeneous", entry)
+                    hetjob.children = hetjobs[job_leader_id]
                     merged_jobs.append(hetjob)
 
-                hetjobs[job_id].children.append(
-                    Job.from_queue(job_id, "single", entry, hetidx=hetidx)
-                )
-
-                if not dedup:
+                if not merge:
                     merged_jobs.append(
                         Job.from_queue(job_id, "single", entry, hetidx=hetidx)
                     )
-
             else:
                 merged_jobs.append(Job.from_queue(job_id, "single", entry))
         return merged_jobs
