@@ -35,10 +35,10 @@ Submitting and looking up jobs
     # submits a job using the file `jobscript.sh` in your home directory as the
     # slurm jobscript.
     # Returns an object representing the submitted job
-    job = slurm.submit("~/jobscript.sh")
+    job = slurm.submit_job("~/jobscript.sh")
     print(job)
     # returns all jobs currently in SLURM's queue by the user 'me'
-    my_jobs = slurm.queue.filter(user_id="me")
+    my_jobs = slurm.queue.find(user_id="me")
     print(my_jobs)
 
 
