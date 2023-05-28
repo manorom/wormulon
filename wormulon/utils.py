@@ -1,5 +1,6 @@
 import datetime
 
+
 def parse_job_id(jobid_str):
     jobidsplit = jobid_str.split("+", 1)
     job_leader_id = jobidsplit[0]
