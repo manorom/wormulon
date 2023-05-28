@@ -1,5 +1,3 @@
-from .job import Job, JobNotFound
-
 from copy import deepcopy
 
 

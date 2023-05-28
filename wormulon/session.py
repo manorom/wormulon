@@ -1,6 +1,7 @@
-import paramiko
 from typing import Optional
 import abc
+import paramiko
+
 
 _SQUEUE_FORMAT = "%a|%i|%T|%B|%e|%P"
 _SQUEUE_FORMAT_KEYS = (

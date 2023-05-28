@@ -25,7 +25,20 @@ def _squeue_entry_is_done(state):
 
 @dataclass
 class Job:
-    job_id: str
+    """
+    Represents a job with its state at a paritcular point in time.
+
+    Attributes:
+        job_id (str): The job ID.
+        kind (str): The type of job ("single" or "heterogeneous").
+        heterogeneous_index (int|None): The index for heterogeneous jobs, or None for single jobs.
+        account (str): The account associated with the job.
+        partition (str): The partition where the job is running.
+        state (str): The current state of the job.
+        end_time (datetime|None): The expected end time of the job, or None if not available.
+        children (list): A list of child jobs.
+    """
+    job_id: int
     kind: str
     heterogeneous_index: int | None
     account: str
@@ -50,6 +63,18 @@ class Job:
 
     @classmethod
     def from_queue(cls, job_id, kind, squeue_output, hetidx=None):
+        """
+        Create a Job instance from squeue output.
+
+        Args:
+            job_id (str): The job ID.
+            kind (str): The type of job ("single" or "heterogeneous").
+            squeue_output (dict): The output from squeue command for the job.
+            hetidx (int|None, optional): The index for heterogeneous jobs, or None for single jobs. Defaults to None.
+
+        Returns:
+            Job: A Job instance.
+        """
         return cls(
             job_id=job_id,
             kind=kind,
@@ -71,6 +96,7 @@ class Job:
 
     def cancel(self, session):
         session.scancel(job_id=self.job_id)
+
 
     @property
     def running(self):
